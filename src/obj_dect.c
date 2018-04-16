@@ -5,8 +5,24 @@
 #include "obj_dect.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+//Operating the scanners
+#include "IR.h"
+#include "ping.h"
+#include "servo.h"
+#include "uart.h"
 
 #include <inc/tm4c123gh6pm.h>
+
+static char scan_increment = 1;
+/*database of cybots*/
+//int offset = -14; //cybot 2
+int offset = 47; //cybot 14
+
+int range_top = 180;
+
+char was_init = 0;
+
  
 float* obj_dist;    //The distance of the objects from the sensor(cm)/
 				    //AF: the number of starts/ends when running the algorithm
@@ -29,16 +45,21 @@ int size;           //The number of data point in the XX_data arrays. Should be 
  * int[] sn_input: the input data from the PING sensor
  * int n: length of the previous arrays
  */
-void obj_init(int ir_input[], float sn_input[], int n){
-    //allocate memory for the XX_data arrays
-	ir_data = (int*)malloc(sizeof(int) * n);
-	sn_data = (float*)malloc(sizeof(float) * n);
-	size = n;
-	//Copy over the data from the parameters.
-	int j;for(j=0; j < size; j++){
-	    ir_data[j] = ir_input[j];
-	    sn_data[j] = sn_input[j];
-	}
+void obj_init(){
+    //Initalize the libraries for scanning the envirnment.
+//    servo_init();
+//    ping_init();
+//    ir_init();
+
+    if(!was_init){
+        servo_init();
+        ping_init();
+        ir_init();
+
+        ir_data = (int*)malloc(sizeof(int) * (range_top / scan_increment));
+        sn_data = (float*)malloc(sizeof(float) * (range_top / scan_increment));
+        was_init = 1;
+    }
 }
 
 /**
@@ -47,6 +68,13 @@ void obj_init(int ir_input[], float sn_input[], int n){
  * Precondition: obj_init has already been run with the correct data.
  */
 void obj_run(){
+    char string[20];
+    int i;for(i = 0; i < size;i++){
+        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[i], sn_data[i]);
+        uart_sendStr(string);
+    }
+
+
     //Gets the rolling average for the data given. Smooths out the data more to midigate outliers.
     get_rolling_average();
     //Converts the data from the rolling average to bits (0/1) depending on if the data meets the 120 threshold.
@@ -211,3 +239,50 @@ int get_obj_width(int index){
     return obj_width[index];
 }
 
+
+int estimate_distance(int binary_value){
+   return (int)(108105 / pow(binary_value, 1.166));
+}
+
+void obj_scan(){
+    turn_to(0 + offset);
+
+    char string[20];
+
+    timer_waitMillis(1000);
+    int j = 0;
+    int i;for(i = offset; i < range_top + offset;i += scan_increment){
+        //turn to i
+        turn_to(i);
+
+        //pulse,
+        pulse();
+        //wait for pulse
+        timer_waitMillis(100);
+        //find distance using distance method
+        float sonar_scan = distance();
+        //initiate SS0 conversion
+        ADC0_PSSI_R=ADC_PSSI_SS0;
+        //wait for ADC conversion to be complete
+        while((ADC0_RIS_R & ADC_RIS_INR0) == 0){}
+        //grab result
+        int value = ADC0_SSFIFO0_R;
+        int ir_scan = estimate_distance(value);
+        ir_data[j]      = ir_scan;
+        sn_data[j]   = sonar_scan;
+
+        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[j], sn_data[j]);
+        uart_sendStr(string);
+
+        j++;
+    }
+    size = j;
+//    lcd_printf("sending1:%d", get_n_objects());
+//    char string[20];
+//    for(i = 0; i < get_n_objects();i++){
+//          lcd_printf("sending2");
+//          sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
+//          uart_sendStr(string);
+//     }
+    turn_to(90 + offset);
+}

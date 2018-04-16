@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <inc/tm4c123gh6pm.h>
 
-void obj_init(int ir_input[], float sn_input[], int n);
+void obj_init();
 
 void obj_run();
 
@@ -27,5 +27,9 @@ float get_obj_dist(int index);
 int get_obj_location(int index);
 
 int get_obj_width(int index);
+
+int estimate_distance(int binary_value);
+
+void obj_scan();
 
 #endif /* OBJ_DECT_H_ */
