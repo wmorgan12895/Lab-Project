@@ -4,89 +4,128 @@
  *  Created on: Mar 26, 2018
  *      Author: mhoppe & kelange
  */
-
+#include "movement.h"
+#include "open_interface.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "servo.h"
 #include "Timer.h"
 #include "lcd.h"
 #include "button.h"
 #include "uart.h"
-//#include "WIFI.h"
 #include "IR.h"
 #include "ping.h"
 #include "obj_dect.h"
 #include <math.h>
-static char scan_increment = 1;
 
-//int estimate_distance(int binary_value);
-//int[] rolling_average(int[] data);
+void doCommand(char cmd, oi_t *sensor){
+    switch(cmd) {
+    case 'w' :
+        move_forward_with_bumps(sensor, 100);
+        uart_sendStr("Moved Forward 10cm\n\r");
+        break;
+    case 's' :
+        move_backwards(sensor, 100);
+        uart_sendStr("Moved Backward 10cm\n\r");
+        break;
+    case 'd' :
+        turn_clockwise(sensor, 90);
+        uart_sendStr("Turned clockwise 90 degrees\n\r");
+        break;
+    case 'a' :
+        turn_counterclockwise(sensor, 90);
+        uart_sendStr("Turned counter-clockwise 90 degrees\n\r");
+        break;
+    case 'e' :
+       turn_clockwise(sensor, 45);
+       uart_sendStr("Turned counter-clockwise 45 degrees\n\r");
+       break;
+    case 'q' :
+       turn_counterclockwise(sensor, 45);
+       uart_sendStr("Turned counter-clockwise 45 degrees\n\r");
+       break;
+    case '1' :
+        uart_sendStr("Function 1 (180 degree sweep?) \n\r");
+        obj_init();
+        obj_scan();
+        obj_run();
+        break;
+    case '2' :
+        uart_sendStr("Function 2 (360 degree sweep?)\n\r");
+        break;
+    case '3' :
+        uart_sendStr("Function 3 (flash LED)\n\r");
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        timer_waitMillis(300);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        timer_waitMillis(300);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        break;
+    case '4' :
+        uart_sendStr("Function 4 (?)\n\r");
+        break;
+    }
 
-int estimate_distance(int binary_value){
-   return (int)(108105 / pow(binary_value, 1.166));
 }
+//putty wifi 192.168.1.1 port 288 raw pass cpre288psk
 
-
-void main(void){
-//    WiFi_start("letsgochamp");
-//    button_init();
+int main(void) {
+    oi_t *sensor_data = oi_alloc();
+    oi_init(sensor_data);
+    oi_free(sensor_data);
     lcd_init();
-    servo_init();
+    button_init();
     uart_init();
 
-    ping_init();
-    ir_init();
+    //WiFi_start("password");
 
-    /*database of cybots*/
-    //int offset = -14; //cybot 2
-    int offset = 47; //cybot 14
+    lcd_printf("Ready to connect");
+    oi_setWheels(0, 0);
+    char cmd = 0;
 
-
-    int range_top = 180;
-    turn_to(0 + offset);
-
-    int irArray[180];
-    float sonarArray[180];
-    char string[20];
-
-    timer_waitMillis(1000);
-    uart_sendStr("Angle\t\tIR Sensor\tSonar Sensor\n");
-        int j = 0;
-        int i;for(i = offset; i < range_top + offset;i += scan_increment){
-            if (i >= offset && i <= (range_top+offset)){
-                //turn to i
-                turn_to(i);
-                //pulse,
-                pulse();
-                //wait for pulse
-                timer_waitMillis(100);
-                //find distance using distance method
-                float sonar_scan = distance();
-
-                //initiate SS0 conversion
-                ADC0_PSSI_R=ADC_PSSI_SS0;
-                //wait for ADC conversion to be complete
-                while((ADC0_RIS_R & ADC_RIS_INR0) == 0){}
-                //grab result
-                int value = ADC0_SSFIFO0_R;
-                int ir_scan = estimate_distance(value);
-                sprintf(string, "%d\t\t%d\t\t%0.2f\n", i - offset, ir_scan, sonar_scan);
-                uart_sendStr(string);
-                irArray[j] = ir_scan;
-                sonarArray[j] = sonar_scan;
-                j++;
-            }
+    while(1){
+        if(cmd != 13){
+            uart_sendStr("Awaiting Command\n\r");
         }
-
-        obj_init(irArray, sonarArray, 180);
-        obj_run();
-
-        for(i = 0; i < get_n_objects();i++){
-            sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
-            uart_sendStr(string);
-        }
-
-        timer_waitMillis(300);
-//        turn_to(obj_location[smallest] + offset);
-//        timer_waitMillis(750);
-
-    while(1);
+        cmd = uart_receive();
+        doCommand(cmd, sensor_data);
+    }
 }
+
+
+//void main(void){
+//    lcd_init();
+//    uart_init();
+//
+//    obj_init();
+//    obj_scan();
+//    obj_run();
+//
+//    char string[20];
+//    int i;for(i = 0; i < get_n_objects();i++){
+//        sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
+//        uart_sendStr(string);
+//    }
+//
+//    timer_waitMillis(300);
+////        turn_to(obj_location[smallest] + offset);
+////        timer_waitMillis(750);
+//
+//    while(1);
+//}
