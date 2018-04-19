@@ -55,7 +55,7 @@ void turn_to(int degree){
 
     TIMER1_TBPMR_R = ((timer_end - pulse_width) >> 16);
 
-    timer_waitMillis(50);
+//    timer_waitMillis(50);
 }
 
 volatile int current_position(void){

@@ -37,6 +37,14 @@ void doCommand(char cmd, oi_t *sensor){
         turn_counterclockwise(sensor, 90);
         uart_sendStr("Turned counter-clockwise 90 degrees\n\r");
         break;
+    case 'e' :
+       turn_clockwise(sensor, 45);
+       uart_sendStr("Turned counter-clockwise 45 degrees\n\r");
+       break;
+    case 'q' :
+       turn_counterclockwise(sensor, 45);
+       uart_sendStr("Turned counter-clockwise 45 degrees\n\r");
+       break;
     case '1' :
         uart_sendStr("Function 1 (180 degree sweep?) \n\r");
         obj_init();
@@ -48,6 +56,26 @@ void doCommand(char cmd, oi_t *sensor){
         break;
     case '3' :
         uart_sendStr("Function 3 (flash LED)\n\r");
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        timer_waitMillis(300);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        timer_waitMillis(300);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
+        oi_setLeds(1,1,0,255);
+        timer_waitMillis(300);
+        oi_setLeds(0,0,0,0);
         break;
     case '4' :
         uart_sendStr("Function 4 (?)\n\r");
@@ -60,6 +88,7 @@ void doCommand(char cmd, oi_t *sensor){
 int main(void) {
     oi_t *sensor_data = oi_alloc();
     oi_init(sensor_data);
+    oi_free(sensor_data);
     lcd_init();
     button_init();
     uart_init();

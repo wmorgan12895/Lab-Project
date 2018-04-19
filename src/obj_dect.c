@@ -16,7 +16,7 @@
 
 static char scan_increment = 1;
 /*database of cybots*/
-//int offset = -14; //cybot 2
+//int offset = 35; //cybot 2
 int offset = 47; //cybot 14
 
 int range_top = 180;
@@ -69,10 +69,15 @@ void obj_init(){
  */
 void obj_run(){
     char string[20];
-    int i;for(i = 0; i < size;i++){
-        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[i], sn_data[i]);
-        uart_sendStr(string);
-    }
+    int i;
+//    for(i = 0; i < size;i++){
+//        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[i], sn_data[i]);
+//        uart_sendStr(string);
+//    }
+
+    free(obj_dist);
+    free(obj_location);
+    free(obj_width);
 
 
     //Gets the rolling average for the data given. Smooths out the data more to midigate outliers.
@@ -83,6 +88,21 @@ void obj_run(){
     get_number_edges();
     //gets the information from each object that it sees.
     get_objects();
+
+    uart_sendStr("Object Distance     Object Location      Object Width(degrees?\n");
+    for(i = 0; i < get_n_objects();i++){
+      sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
+      uart_sendStr(string);
+     }
+
+//    uart_sendStr("[");
+    for(i = 0; i < size;i++){
+        sprintf(string, "%c", (ir_data[i] == 0 ? 'O' : '_'));
+        uart_sendStr(string);
+    }
+//    uart_sendStr("]");
+
+
 }
 
 /**
@@ -195,7 +215,7 @@ void get_objects(){
     }
 	//Calculate the info for each of the objects.
 	for(i = 0; i < n_objects;i++){
-		obj_location[i] = (ends_index[i] + starts_index[i]) / 2;
+		obj_location[i] = ((ends_index[i] + starts_index[i]) / 2) * scan_increment;
 		obj_dist[i] = sn_data[obj_location[i]];
 		obj_width[i] = ends_index[i] - starts_index[i];
 	}
@@ -251,7 +271,9 @@ void obj_scan(){
 
     timer_waitMillis(1000);
     int j = 0;
-    int i;for(i = offset; i < range_top + offset;i += scan_increment){
+//    int i;for(i = offset; i >= range_top + offset;i -= scan_increment){
+    int i;for(i = range_top + offset - 1; i >= offset;i -= scan_increment){
+
         //turn to i
         turn_to(i);
 
@@ -271,18 +293,11 @@ void obj_scan(){
         ir_data[j]      = ir_scan;
         sn_data[j]   = sonar_scan;
 
-        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[j], sn_data[j]);
+        sprintf(string, "%d\t%d\t%0.2f\n", i-offset, ir_data[j], sn_data[j]);
         uart_sendStr(string);
 
         j++;
     }
     size = j;
-//    lcd_printf("sending1:%d", get_n_objects());
-//    char string[20];
-//    for(i = 0; i < get_n_objects();i++){
-//          lcd_printf("sending2");
-//          sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
-//          uart_sendStr(string);
-//     }
     turn_to(90 + offset);
 }

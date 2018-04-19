@@ -36,7 +36,7 @@ void turn_clockwise(oi_t *sensor, int degrees){
     int sum = degrees;
         oi_setWheels(-75, 75);
         timer_waitMillis(20);
-        while (sum > 17) {
+        while (sum > 0) {
                 oi_update(sensor);
                 sum += sensor->angle;
         }
@@ -47,7 +47,7 @@ void turn_counterclockwise(oi_t *sensor, int degrees){
     //Pass positive numbers for degrees
     int sum = 0;
         oi_setWheels(75, -75);
-        while (sum < degrees-8) {
+        while (sum < degrees) {
                 oi_update(sensor);
                 sum += sensor->angle;
          }
