@@ -10,6 +10,8 @@
 
 void obj_init();
 
+void obj_init_io();
+
 void obj_run();
 
 void get_rolling_average();
@@ -21,6 +23,8 @@ void get_number_edges();
 void get_objects();
 
 int get_n_objects();
+
+void obj_flush();
 
 float get_obj_dist(int index);
 

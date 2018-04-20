@@ -12,27 +12,31 @@
 #include "servo.h"
 #include "uart.h"
 
+//#define d_scan_increment 1
+//#define d_range_top 180
+
 #include <inc/tm4c123gh6pm.h>
 
-static char scan_increment = 1;
+const static char scan_increment = 1;
 /*database of cybots*/
 //int offset = 35; //cybot 2
-int offset = 47; //cybot 14
+int offset = 34; //cybot 1
+//int offset = 47; //cybot 14
 
-int range_top = 180;
+const int range_top = 180;
 
 char was_init = 0;
 
  
 float* obj_dist;    //The distance of the objects from the sensor(cm)/
-				    //AF: the number of starts/ends when running the algorithm
-int* obj_location;	//The angle of the object w/r to the bot (0-179 degrees)
-int* obj_width;	    //Width of the object in degrees (**maybe changed to cm when support is added**)
-int n_objects;		//Number of objects detected
-					//AF: firstStart index
+                    //AF: the number of starts/ends when running the algorithm
+int* obj_location;  //The angle of the object w/r to the bot (0-179 degrees)
+int* obj_width;     //Width of the object in degrees (**maybe changed to cm when support is added**)
+int n_objects;      //Number of objects detected
+                    //AF: firstStart index
 
-int*     ir_data;   //The data stored from the ir_sensor, get modified as it runs through the algorithm.
-float*   sn_data;   //The data stored from the sonar_sensor, get modified as it runs through the algorithm.
+int     ir_data[range_top / scan_increment];   //The data stored from the ir_sensor, get modified as it runs through the algorithm.
+float   sn_data[range_top / scan_increment];   //The data stored from the sonar_sensor, get modified as it runs through the algorithm.
 int size;           //The number of data point in the XX_data arrays. Should be the same as data points are taken together.
 
 /**
@@ -46,20 +50,16 @@ int size;           //The number of data point in the XX_data arrays. Should be 
  * int n: length of the previous arrays
  */
 void obj_init(){
-    //Initalize the libraries for scanning the envirnment.
-//    servo_init();
-//    ping_init();
-//    ir_init();
-
     if(!was_init){
-        servo_init();
-        ping_init();
-        ir_init();
-
-        ir_data = (int*)malloc(sizeof(int) * (range_top / scan_increment));
-        sn_data = (float*)malloc(sizeof(float) * (range_top / scan_increment));
+        obj_init_io();
         was_init = 1;
     }
+}
+
+void obj_init_io(){
+    servo_init();
+    ping_init();
+    ir_init();
 }
 
 /**
@@ -68,8 +68,8 @@ void obj_init(){
  * Precondition: obj_init has already been run with the correct data.
  */
 void obj_run(){
-    char string[20];
-    int i;
+//    char string[20];
+//    int i;
 //    for(i = 0; i < size;i++){
 //        sprintf(string, "%d\t%d\t%0.2f\n", i, ir_data[i], sn_data[i]);
 //        uart_sendStr(string);
@@ -78,7 +78,6 @@ void obj_run(){
     free(obj_dist);
     free(obj_location);
     free(obj_width);
-
 
     //Gets the rolling average for the data given. Smooths out the data more to midigate outliers.
     get_rolling_average();
@@ -89,20 +88,10 @@ void obj_run(){
     //gets the information from each object that it sees.
     get_objects();
 
-    uart_sendStr("Object Distance     Object Location      Object Width(degrees?\n");
-    for(i = 0; i < get_n_objects();i++){
-      sprintf(string, "%d\t%0.2f\t%d\t%d\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i));
-      uart_sendStr(string);
-     }
 
-//    uart_sendStr("[");
-    for(i = 0; i < size;i++){
-        sprintf(string, "%c", (ir_data[i] == 0 ? 'O' : '_'));
-        uart_sendStr(string);
-    }
-//    uart_sendStr("]");
-
-
+//    for(i = 0; i < size;i++){
+//        sprintf(string, "%c", (ir_data[i] == 0 ? 'O' : '_'));
+//        uart_sendStr(string);}
 }
 
 /**
@@ -115,8 +104,7 @@ void obj_run(){
  */
 void get_rolling_average(){
     //Create temp variable to put the rolling average into.
-	int* tmp;
-	tmp = (int*)malloc(sizeof(int) * size);
+	int tmp[size];
 	int j;for(j=0; j < size; j++){
 		int Avgir;
 		        //No average, because it is at an edge
@@ -131,8 +119,6 @@ void get_rolling_average(){
 	for(j=0; j < size; j++){
 		ir_data[j] = tmp[j];
 	}
-	//Unallocate the memory of tmp
-	free(tmp);
 }
 
 /**
@@ -143,7 +129,7 @@ void get_rolling_average(){
  */
 void get_bits(){
 	int j;for(j=0; j < size; j++){
-		ir_data[j] = (ir_data[j]>120 ? 1 : 0);
+		ir_data[j] = (ir_data[j] > 180 ? 1 : 0);
     }
 }
 
@@ -161,7 +147,7 @@ void get_bits(){
  * are where the objects are.
  */
 void get_number_edges(){
-	obj_dist = (float*)malloc(sizeof(float) * size);//[0] = #starts, [1] = #ends
+    obj_dist = (float*)malloc(sizeof(float) * 2);//[0] = #starts, [1] = #ends
 	int j;for(j=0; j < size; j++){
 	    //If there is a start
 		if(ir_data[j] < ir_data[j-1]){
@@ -188,16 +174,17 @@ void get_number_edges(){
  * obj_width: Width of the object in degrees.
  */
 void get_objects(){
-    int* starts_index;
-    int* ends_index;
     //Instantiate arrays with the length of the number of objects detected
-    n_objects = (int)obj_dist[1];
-	starts_index 	= (int*)    malloc(sizeof   (int)   * n_objects);
-    ends_index 	    = (int*)    malloc(sizeof   (int)   * n_objects);
+    n_objects = ((int)obj_dist[1] <= 7 ? (int)obj_dist[1] : 7);
 
+	int starts_index[n_objects];
+    int ends_index[n_objects];
+
+    free(obj_dist);
     obj_dist        = (float*)  malloc(sizeof (float)   * n_objects);
     obj_location    = (int*)    malloc(sizeof   (int)   * n_objects);
     obj_width       = (int*)    malloc(sizeof   (int)   * n_objects);
+
     //Keep tracc of the index of the first empty element as we fill it up.
     int starts_index_size = 0;
     int ends_index_size = 0;
@@ -215,13 +202,27 @@ void get_objects(){
     }
 	//Calculate the info for each of the objects.
 	for(i = 0; i < n_objects;i++){
-		obj_location[i] = ((ends_index[i] + starts_index[i]) / 2) * scan_increment;
+		obj_location[i] = range_top - ((ends_index[i] + starts_index[i]) / 2) * scan_increment;
 		obj_dist[i] = sn_data[obj_location[i]];
-		obj_width[i] = ends_index[i] - starts_index[i];
+		int w_degrees = ends_index[i] - starts_index[i];
+		obj_width[i] = (int)((w_degrees * 2 * 3.14159265358979323846 * obj_dist[i]) / 360);
+
 	}
 	//Free the temporary variables.
-	free(starts_index);
-	free(ends_index);
+
+	char string[20];
+	uart_sendStr("Index\tDistance\tLocation\tWidth(cm)(degr)\n");
+    for(i = 0; i < get_n_objects();i++){
+      sprintf(string, "%d\t%0.2f\t\t%d\t\t%d(%d)\n", i, get_obj_dist(i), get_obj_location(i), get_obj_width(i), ends_index[i] - starts_index[i]);
+      uart_sendStr(string);
+     }
+
+    free(obj_dist);
+    free(obj_location);
+    free(obj_width);
+}
+
+void obj_flush(){
 }
 
 /**
@@ -265,7 +266,7 @@ int estimate_distance(int binary_value){
 }
 
 void obj_scan(){
-    turn_to(0 + offset);
+    turn_to(180 + offset);
 
     char string[20];
 

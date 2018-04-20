@@ -50,9 +50,20 @@ void doCommand(char cmd, oi_t *sensor){
         obj_init();
         obj_scan();
         obj_run();
+        obj_flush();
         break;
     case '2' :
-        uart_sendStr("Function 2 (360 degree sweep?)\n\r");
+//        uart_sendStr("Function 2 (360 degree sweep?)\n\r");
+        uart_sendStr("Function D (DEBUG) \n\r");
+        char string[20];
+        int j;for(j = 0; j < 2;j++){
+            sprintf(string, "Run %d...", j);
+            uart_sendStr(string);
+            obj_init();
+            obj_scan();
+            obj_run();
+            obj_flush();
+        }
         break;
     case '3' :
         uart_sendStr("Function 3 (flash LED)\n\r");
